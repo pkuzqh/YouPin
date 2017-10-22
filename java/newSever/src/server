@@ -1,0 +1,492 @@
+/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package server;
+
+import java.io.*;
+import java.net.*;
+import java.util.*;
+import javax.swing.*;
+import java.awt.*;
+import java.util.Date.*;
+import java.text.*;
+
+/**
+ *
+ * @author zqh
+ */
+public class Server extends JFrame implements Runnable {
+
+    private int port = 8888;
+    private ServerSocket listen_socket;
+    String font = "华文行楷";
+    Thread thread;
+    static int connectionnumber = 0;
+    static Vector clients;
+    JPanel diary;
+    JPanel activeconnection;
+    JPanel dcontent;
+    JLabel diarytitle;
+    JLabel activeconnectiontitle;
+    JLabel title1;
+    JLabel title2;
+    JLabel title3;
+    JLabel title4;
+    JLabel activetitle;
+
+    JPanel connection[] = new JPanel[11];
+    JButton connectionbutton[] = new JButton[11];
+    static JLabel connectionlabel[] = new JLabel[11];
+    JPanel activecontent;
+    static JLabel content[][] = new JLabel[10][4];
+    static Vector<String> diaryusr_id;
+    static Vector<String> diaryusr_mode;
+    static Vector<String> diaryusr_result;
+    static Vector<String> diaryusr_time;
+
+    public void ServerListen() {
+        try {
+
+            listen_socket = new ServerSocket(port);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        clients = new Vector();
+        thread = new Thread(this);
+        thread.start();
+    }
+
+    public Server() {
+        diaryusr_id = new Vector();
+        diaryusr_mode = new Vector();
+        diaryusr_result = new Vector();
+        diaryusr_time = new Vector();
+
+        setBounds(250, 100, 800, 500);
+
+        diary = new JPanel();
+        activeconnection = new JPanel();
+        this.setLayout(new GridLayout(1, 2));
+
+        add(diary);
+        add(activeconnection);
+
+        initJPanel();
+
+        this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setVisible(true);
+        ServerListen();
+    }
+
+    public void initJPanel() {
+        diarytitle = new JLabel("活动日志", JLabel.CENTER);
+        diarytitle.setSize(400, 50);
+        diarytitle.setBackground(Color.white);
+        diarytitle.setOpaque(true);
+        diarytitle.setFont(new Font(font, 0, 18));
+
+        diary.setLayout(new BorderLayout());
+        diary.add(diarytitle, BorderLayout.NORTH);
+        diary.setBackground(Color.red);
+
+        dcontent = new JPanel();
+        diary.add(dcontent, BorderLayout.CENTER);
+
+        dcontent.setSize(400, 450);
+        dcontent.setBackground(Color.white);
+        dcontent.setLayout(new GridLayout(11, 4, 3, 3));
+        diary.add(dcontent);
+        title1 = new JLabel("客户端id", JLabel.CENTER);
+        title1.setOpaque(true);
+        title2 = new JLabel("模式", JLabel.CENTER);
+        title2.setOpaque(true);
+        title3 = new JLabel("结果", JLabel.CENTER);
+        title3.setOpaque(true);
+        title4 = new JLabel("时间", JLabel.CENTER);
+        title4.setOpaque(true);
+        dcontent.add(title1);
+        dcontent.add(title2);
+        dcontent.add(title3);
+        dcontent.add(title4);
+
+        for (int i = 0; i < 10; ++i) {
+            for (int j = 0; j < 4; ++j) {
+                content[i][j] = new JLabel();
+                content[i][j].setOpaque(true);
+                content[i][j].setHorizontalAlignment(JLabel.CENTER);
+                dcontent.add(content[i][j]);
+                if (j == 3) {
+                    content[i][j].setFont(new Font("", 0, 8));
+                }
+            }
+        }
+
+        activetitle = new JLabel("当前活跃连接", JLabel.CENTER);
+        activetitle.setSize(400, 50);
+        activeconnection.setLayout(new BorderLayout());
+        activeconnection.add(activetitle, BorderLayout.NORTH);
+        activetitle.setBackground(Color.white);
+        activetitle.setOpaque(true);
+        activetitle.setFont(new Font(font, 0, 18));
+
+        activecontent = new JPanel();
+        activecontent.setBackground(Color.white);
+        activeconnection.add(activecontent, BorderLayout.CENTER);
+        activeconnection.setSize(400, 450);
+        activecontent.setLayout(new GridLayout(11, 1, 3, 3));
+        activecontent.setBackground(Color.white);
+        for (int i = 0; i < 11; ++i) {
+            connection[i] = new JPanel();
+            activecontent.add(connection[i]);
+            connection[i].setLayout(null);
+            connectionlabel[i] = new JLabel();
+            connectionlabel[i].setOpaque(true);
+            connection[i].add(connectionlabel[i]);
+            connectionlabel[i].setBounds(0, 0, 300, 40);
+            connectionbutton[i] = new JButton("关闭连接");
+            connectionbutton[i].setOpaque(true);
+            connection[i].add(connectionbutton[i]);
+            connectionbutton[i].setBounds(300, 0, 100, 40);
+        }
+    }
+
+    public static void set_diary() {
+        for (int i = diaryusr_id.size() - 1; i >= 0 && i >= diaryusr_id.size() - 10; --i) {
+            content[diaryusr_id.size() - 1 - i][0].setText(diaryusr_id.get(i));
+            content[diaryusr_id.size() - 1 - i][1].setText(diaryusr_mode.get(i));
+            content[diaryusr_id.size() - 1 - i][2].setText(diaryusr_result.get(i));
+            content[diaryusr_id.size() - 1 - i][3].setText(diaryusr_time.get(i));
+        }
+    }
+
+    public static void setconnection() {
+        for (int i = 0; i < clients.size(); ++i) {
+            Connection t = (Connection) clients.get(i);
+            connectionlabel[i].setText("用户名：" + t.usr_id);
+        }
+    }
+
+    public static void main(String[] args) {
+        new Server();
+    }
+
+    public void run() {
+        try {
+            while (true) {
+                //this.setconnection();
+                Socket client_socket = listen_socket.accept();
+                Connection c = new Connection(client_socket, connectionnumber++);
+                clients.add(c);
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    class Connection extends Thread {
+
+        private Socket client;
+        private DataInputStream cin;
+        private DataOutputStream cout;
+        private int id;
+        String usr_id = new String();
+
+        public Connection(Socket client, int connectionnumber) {
+            this.client = client;
+            id = connectionnumber;
+            try {
+                cin = new DataInputStream(client.getInputStream());
+                cout = new DataOutputStream(client.getOutputStream());
+                usr_id = cin.readUTF();
+            } catch (Exception e) {
+                System.out.print(e);
+            }
+            this.start();
+        }
+
+        public void run() {
+            while (true) {
+                if (client.isClosed()) {
+                    break;
+                }
+                try {
+                    String mode = cin.readUTF();
+                    String result = new String();
+                    if (mode.equals("usr_password")) {
+                        result = usr_passwordconfirm();
+                        cout.writeUTF(result);
+                    }
+                    if (mode.equals("usr_newusr")) {
+                        result = new_usr();
+                        usr_id = "new_usr_name" + usr_id;
+                        cout.writeUTF(result);
+                    }
+                    if (mode.equals("change_usr_info")) {
+                        result = "success";
+                        usr_change();
+                    }
+                    if (mode.equals("bye")) {
+                        result = "closed";
+                        client.close();
+                        for (int i = 0; i < Server.clients.size(); ++i) {
+                            if (id == ((Connection) Server.clients.get(i)).id) {
+                                Server.clients.remove(i);
+                            }
+                        }
+                    }
+                    if (mode.equals("getUsr")) {
+                        result = "success";
+                        getusrinfo();
+                    }
+                    if (mode.equals("getblogtext")) {
+                        result = "success";
+                        getblogtext();
+                    }
+                    if (mode.equals("getblogmaintext")) {
+                        result = "success";
+                        getblogmaintext();
+                    }
+
+                    if (mode.equals("getblogcomment")) {
+                        result = "success";
+                        getblogcomment();
+                    }
+
+                    if (mode.equals("createblog")) {
+                        result = "success";
+                        createblog();
+                    }
+
+                    if (mode.equals("addcomment")) {
+                        result = "success";
+                        addcomment();
+                    }
+
+                    if (mode.equals("getblognumber")) {
+                        result = "success";
+                        getblognumber();
+                    }
+
+                    Server.diaryusr_id.add(usr_id);
+                    Server.diaryusr_mode.add(mode);
+                    Server.diaryusr_result.add(result);
+                    Date date = new Date();
+                    DateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                    String time = format.format(date);
+                    Server.diaryusr_time.add(time);
+                    set_diary();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            Server.setconnection();
+        }
+
+        public String new_usr() throws Exception {
+            String usr_name = cin.readUTF();
+            String usr_password = cin.readUTF();
+            String usr_email = cin.readUTF();
+            File usr_number = new File("src/usr/usr_number.txt");
+            if (!usr_number.exists()) {
+                usr_number.createNewFile();
+            }
+            String usr_numberString = new DataInputStream(new FileInputStream(usr_number)).readUTF();
+            usr_id = String.valueOf(Integer.parseInt(usr_numberString) + 1);
+            Usr_Info usr = new Usr_Info(usr_id, usr_password, usr_email, usr_name);
+            /*String filepath = "src/usr/" + usr_id + ".txt";
+            if (new File(filepath).exists()) {
+                return "exist";
+            }*/
+            Usr_Info.writeUser(usr);
+            return "success";
+        }
+
+        public String usr_passwordconfirm() throws Exception {
+            String usr_id = cin.readUTF();
+            String usr_password = cin.readUTF();
+            String filename = "src/usr/" + usr_id + ".txt";
+            //System.out.println("mima " + this.usr_id + " " + usr_password);
+            if (!(new File(filename)).exists()) {
+                return "not matched";
+            }
+            Usr_Info user = Usr_Info.readUser(filename);
+
+            if (user.getKeyword().equals(Encryption.Encrypt(usr_password))) {
+                return "matched";
+            } else {
+                return "not matched";
+            }
+        }
+
+        public void usr_change() throws Exception {
+
+            String filename = "src/usr/" + usr_id + ".txt";
+            String name, id, keyword, star, age, job, hobby, mail;
+            name = cin.readUTF();
+            id = cin.readUTF();
+            keyword = cin.readUTF();
+            star = cin.readUTF();
+            age = cin.readUTF();
+            job = cin.readUTF();
+            hobby = cin.readUTF();
+            mail = cin.readUTF();
+            System.out.println(name);
+            System.out.println(id);
+            System.out.println(keyword);
+            System.out.println(star);
+            System.out.println(age);
+            System.out.println(job);
+            System.out.println(hobby);
+            System.out.println(mail);
+            Usr_Info temp = Usr_Info.readUser(filename);
+            temp.setAge(age);
+            temp.setHobby(hobby);
+            temp.setJob(job);
+            temp.setMail(mail);
+            temp.setName(name);
+            temp.setStar(star);
+            Usr_Info.writeUser(temp);
+        }
+
+        public void getusrinfo() throws Exception {
+            String usrname = cin.readUTF();
+            String filename = "src/usr/" + usrname + ".txt";
+            DataInputStream in = new DataInputStream(new FileInputStream(new File(filename)));
+
+            String name, id, keyword, star, age, job, hobby, mail;
+            System.out.println("read begin");
+            name = in.readLine();
+            id = in.readLine();
+            keyword = in.readLine();
+            star = in.readLine();
+            age = in.readLine();
+            job = in.readLine();
+            hobby = in.readLine();
+            mail = in.readLine();
+            System.out.println("readend");
+            cout.writeUTF(name);
+            cout.writeUTF(id);
+            cout.writeUTF(star);
+            cout.writeUTF(age);
+            cout.writeUTF(job);
+            cout.writeUTF(hobby);
+            cout.writeUTF(mail);
+            System.out.print("writend");
+        }
+
+        public void getblogtext() throws Exception {
+            int id = cin.readInt();
+            String filename = "src/data/" + id + "/abstract.txt";
+            DataInputStream in = new DataInputStream(new FileInputStream(new File(filename)));
+            String title = in.readLine();
+            String authorname = in.readLine();
+            String time = in.readLine();
+            String commentid = in.readLine();
+            File f = new File("src/data/" + id + "/icon.jpg");
+            DataInputStream fin = new DataInputStream(new FileInputStream(f));
+            cout.writeUTF(title);
+            cout.writeUTF(authorname);
+            cout.writeUTF(time);
+            cout.writeUTF(commentid);
+            cout.writeUTF(f.getName());
+            cout.writeLong(f.length());
+            byte buf[] = new byte[8000];
+            while (true) {
+                int read = 0;
+                read = fin.read(buf);
+                if (read == -1) {
+                    break;
+                }
+                cout.write(buf, 0, read);
+            }
+        }
+
+        public void getblogmaintext() throws Exception {
+            int id = cin.readInt();
+            File f = new File("src/data/" + id + "/text.txt");
+            DataInputStream in = new DataInputStream(new FileInputStream(f));
+            String ans = new String();
+            String buff = new String();
+            ans = in.readLine();
+            while (ans != null) {
+                buff += ans;
+                ans = in.readLine();
+            }
+            cout.writeUTF(buff);
+        }
+
+        public void getblogcomment() throws Exception {
+            int blogid = cin.readInt();
+            int commentid = cin.readInt();
+            File f = new File("src/data/" + blogid + "/" + commentid + ".txt");
+            DataInputStream in = new DataInputStream(new FileInputStream(f));
+            String author = in.readLine();
+            cout.writeUTF(author);
+            String time = in.readLine();
+            cout.writeUTF(time);
+            String ans = new String();
+            String buff = new String();
+            ans = in.readLine();
+            while (ans != null) {
+                buff += ans;
+                ans = in.readLine();
+            }
+            cout.writeUTF(buff);
+        }
+
+        public void createblog() throws Exception {
+            DataInputStream in = new DataInputStream(new FileInputStream("src/data/number.txt"));
+            int number = in.readInt();
+            ++number;
+            DataOutputStream out = new DataOutputStream(new FileOutputStream("src/data/number.txt"));
+            out.writeInt(number);
+            File f = new File("src/data/" + number + "/abstract.txt");
+            if (!f.exists()) {
+                f.getParentFile().mkdirs();
+                f.createNewFile();
+            }
+            out = new DataOutputStream(new FileOutputStream(f));
+            out.writeUTF(cin.readUTF() + '\n');
+            out.writeUTF(cin.readUTF() + '\n');
+            out.writeUTF(cin.readUTF() + '\n');
+            out.writeUTF(cin.readUTF() + '\n');
+            out = new DataOutputStream(new FileOutputStream("src/data/text.txt"));
+            out.writeUTF(cin.readUTF());
+        }
+
+        public void addcomment() throws Exception {
+            int blogid = cin.readInt();
+            String author = cin.readUTF();
+            String commenttime = cin.readUTF();
+            String commenttext = cin.readUTF();
+            File f = new File("src/data/" + id + "/abstract.txt");
+            DataInputStream in = new DataInputStream(new FileInputStream(f));
+            String title = in.readLine();
+            String authorname = in.readLine();
+            String time = in.readLine();
+            String commentid = in.readLine();
+            int cid = Integer.parseInt(commentid);
+            ++cid;
+            commentid = String.valueOf(cid);
+            DataOutputStream out = new DataOutputStream(new FileOutputStream(f));
+            out.writeUTF(title + '\n');
+            out.writeUTF(authorname + '\n');
+            out.writeUTF(time + '\n');
+            out.writeUTF(commentid + '\n');
+            f = new File("src/data/" + id + "/" + cid + ".txt");
+            f.createNewFile();
+            out = new DataOutputStream(new FileOutputStream(f));
+            out.writeUTF(author + '\n');
+            out.writeUTF(commenttime + '\n');
+            out.writeUTF(commenttext + '\n');
+        }
+
+        public void getblognumber() throws Exception {
+            DataInputStream in = new DataInputStream(new FileInputStream("src/data/number.txt"));
+            cout.writeInt(Integer.parseInt(in.readLine()));
+        }
+    }
+}
